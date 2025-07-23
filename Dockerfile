@@ -1,10 +1,6 @@
-# Stage 1: Composer
-FROM composer:latest AS composer
-
-# Stage 2: PHP với Laravel
 FROM php:8.2-fpm
 
-# Cài các thư viện hệ thống
+# Cài các package cần thiết
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -16,17 +12,18 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     && docker-php-ext-install pdo_mysql zip
 
-# Copy composer từ stage composer
-COPY --from=composer /usr/bin/composer /usr/bin/composer
+# Cài Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Đặt thư mục làm việc
+# Copy source code vào container
 WORKDIR /var/www
-
-# Copy mã nguồn
 COPY . .
 
-# Cài đặt Laravel và cache cấu hình
-RUN composer install \
-    && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache
+# Cài thư viện PHP qua composer
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader
+
+# Mở cổng 10000 cho Render
+EXPOSE 10000
+
+# Lệnh chạy Laravel
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=10000"]
