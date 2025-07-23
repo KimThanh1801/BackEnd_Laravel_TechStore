@@ -1,25 +1,32 @@
-FROM php:8.2-apache
+# Stage 1: Composer
+FROM composer:latest AS composer
 
-# Install system dependencies
+# Stage 2: PHP với Laravel
+FROM php:8.2-fpm
+
+# Cài các thư viện hệ thống
 RUN apt-get update && apt-get install -y \
-    git zip unzip libzip-dev libpng-dev libonig-dev curl libxml2-dev \
-    && docker-php-ext-install pdo pdo_mysql zip gd
+    git \
+    curl \
+    unzip \
+    zip \
+    libzip-dev \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    && docker-php-ext-install pdo_mysql zip
 
-# Enable Apache Rewrite Module
-RUN a2enmod rewrite
+# Copy composer từ stage composer
+COPY --from=composer /usr/bin/composer /usr/bin/composer
 
-# Set working directory
-WORKDIR /var/www/html
+# Đặt thư mục làm việc
+WORKDIR /var/www
 
-# Copy project files
+# Copy mã nguồn
 COPY . .
 
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader
-
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-
-# Expose port 80
-EXPOSE 80
+# Cài đặt Laravel và cache cấu hình
+RUN composer install \
+    && php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
